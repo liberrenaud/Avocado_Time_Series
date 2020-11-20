@@ -143,3 +143,58 @@ avocado_price_albany %>%
 No anomaly regarding avocado price in Albany :)
 
 
+# Lags preparation for time series
+
+```{r}
+lags_price <- c(2:8,21,61,83)
+lags_volume <- c(33:52,70:79)
+```
+
+
+# Prepare the full table
+
+
+```{r}
+data_prepared_tbl <- avocado_price_albany %>% 
+  tk_augment_lags(.value = average_price,
+                  .lags = lags_price,
+                  .names = str_c("Lags_price_",lags_price)) %>% 
+  tk_augment_lags(.value = total_volume,
+                  .lags = lags_volume,
+                  .names = str_c("Lags_volume_",lags_volume))
+
+```
+# Split data in testing, training and future data set
+
+
+```{r}
+splits <- data_prepared_tbl %>% 
+  time_series_split(date_var = date,
+                    assess="1 year",
+                    cumulative=TRUE)
+
+
+splits %>% 
+  tk_time_series_cv_plan() %>% 
+  plot_time_series_cv_plan(date,average_price)
+
+data_prepared_tbl %>% 
+  future_frame(.length_out = "6 months")
+
+
+```
+
+
+
+# Recipe for data preparation
+
+```{r}
+
+
+
+recipe_spec <- recipe(average)
+
+
+```
+
+

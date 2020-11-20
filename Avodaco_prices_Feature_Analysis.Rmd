@@ -80,7 +80,8 @@ Data is actually for the 50 states
 
 avocado_price_albany <- avocado_raw %>% 
   filter(region=="Albany",
-         type=="conventional")
+         type=="conventional") %>% 
+  arrange(date)
 ```
 
 ```{r}
@@ -146,8 +147,9 @@ No anomaly regarding avocado price in Albany :)
 # Lags preparation for time series
 
 ```{r}
-lags_price <- c(2:8,21,61,83)
-lags_volume <- c(33:52,70:79)
+lags_price <- c(2:8,21,52)
+lags_volume <- c(17,24,33:52)
+rolling_periods <- c(4, 8, 16, 24, 36)
 ```
 
 
@@ -155,13 +157,32 @@ lags_volume <- c(33:52,70:79)
 
 
 ```{r}
-data_prepared_tbl <- avocado_price_albany %>% 
+avocado_price_albany %>% 
+  
+  #Add future frame
+  bind_rows(avocado_price_albany %>% 
+              future_frame(.date_var = date,
+                           .length_out = "1 year")) %>% 
+
+ # Add lags
   tk_augment_lags(.value = average_price,
                   .lags = lags_price,
                   .names = str_c("Lags_price_",lags_price)) %>% 
   tk_augment_lags(.value = total_volume,
                   .lags = lags_volume,
-                  .names = str_c("Lags_volume_",lags_volume))
+                  .names = str_c("Lags_volume_",lags_volume)) %>% 
+  
+  drop_na(contains("lags")) %>% tail()
+  
+  #Add rolling features
+  tk_augment_slidify(.value=average_price,
+                               .period=rolling_periods,
+                               .align="center",  
+                               .partial=TRUE,
+                               .f=mean,
+                               .names=str_c("MA_", rolling_periods)) %>% tail()
+  
+  
 
 ```
 # Split data in testing, training and future data set

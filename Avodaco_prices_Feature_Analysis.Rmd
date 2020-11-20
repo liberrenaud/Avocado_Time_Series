@@ -1,0 +1,145 @@
+---
+title: "Avocado_price"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Time Series ML
+library(tidymodels)
+library(modeltime)
+
+# Core
+library(tidyverse)
+library(timetk)
+library(lubridate)
+
+# Import & clean
+library(readr)
+library(janitor)
+library(DataExplorer)
+```
+
+
+```{r}
+variables <- (.date_var=date,
+            .value=average_price)
+```
+
+
+```{r Loading the data & DQ checks}
+# A.Loading the data & DQ checks ----
+
+# Load data
+avocado_raw <- read_csv("00_Data/avocado.csv") %>% 
+  clean_names() %>% 
+  select(-1)
+
+# Data retrieve from Kaggle : https://www.kaggle.com/neuromusic/avocado-prices
+
+
+avocado_raw %>% glimpse()
+
+
+# Checking Data quality 
+
+avocado_raw %>% 
+  DataExplorer::plot_missing()
+```
+
+Data has no missing value
+
+## Counting & Visualization
+
+```{r}
+
+#B. Some visualisation
+
+# Pretty much same number of observation between different types of avocado
+avocado_raw %>% 
+  count(type)
+
+```
+
+```{r}
+
+avocado_raw %>% 
+  count(region)
+
+```
+
+Data is actually for the 50 states
+
+
+# Let's looking into doing some modelling in a univariate way
+
+```{r}
+
+avocado_price_albany <- avocado_raw %>% 
+  filter(region=="Albany",
+         type=="conventional")
+```
+
+```{r}
+avocado_price_albany %>% 
+  plot_time_series(.date= date,
+                   .value=average_price,
+                   .smooth=TRUE)
+```
+## CHeck on autocorrelation
+
+```{r}
+
+avocado_price_albany %>% 
+  plot_acf_diagnostics(.date_var = date,
+                       .value=average_price,
+                       .show_white_noise_bars=TRUE)
+
+
+```
+
+Based on ACF plot, I would integrate value 2 to 8, 21, 61 and maybe 83
+
+# Does the quantity sold has as well an impact, let's try to indetify this
+
+```{r}
+
+avocado_price_albany %>% 
+  select(date:total_volume) %>% 
+  plot_acf_diagnostics(.date_var = date,
+                       .value=average_price,
+                       .ccf_vars=total_volume,
+                       .facet_ncol=2,
+                       .show_white_noise_bars=TRUE)
+```
+
+Volume does have a useful cross-corellation element - lag 33 to lag 52. And and inverse correlation lag 70 to 79
+
+
+# How does the seasonality come into play
+
+```{r}
+avocado_price_albany %>% 
+  plot_seasonal_diagnostics(.date_var=date,
+            .value=average_price,
+            .feature_set=c("week","month.lbl","quarter","year"))
+```
+I need to get better at getting the message out from that - I can see that there seem to be some trend from each of this plot but not sure exactly how to articulate it.
+
+
+
+# Is there any anomaly in the price?
+
+```{r}
+
+avocado_price_albany %>% 
+  plot_anomaly_diagnostics(.date_var=date,
+            .value=average_price)
+
+```
+No anomaly regarding avocado price in Albany :)
+
+
